@@ -38,7 +38,7 @@ mount --bind /sys rootfs_mountpoint/sys
 
 install -m755 qemu-aarch64-static rootfs_mountpoint/
 
-chroot rootfs_mountpoint xbps-install -Suy kde-plasma sddm mesa-freedreno-dri maliit-keyboard pipewire bluez libspa-bluetooth xdg-desktop-portal-kde pulseaudio
+chroot rootfs_mountpoint xbps-install -Suy kde-plasma konsole sddm mesa-freedreno-dri maliit-keyboard pipewire bluez libspa-bluetooth xdg-desktop-portal-kde pulseaudio
 
 mkdir rootfs_mountpoint/repo
 mount --bind repo rootfs_mountpoint/repo
