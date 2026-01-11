@@ -45,35 +45,34 @@ mount --bind /dev/pts rootfs_mountpoint/dev/pts
 mount --bind /proc rootfs_mountpoint/proc
 mount --bind /sys rootfs_mountpoint/sys
 
-if [ "$USE_CACHE_REPO" -eq 1 ]; then
-	echo "repository=$CACHE_REPO" > rootfs_mountpoint/etc/xbps.d/10-repository-main.conf
-fi
-
-echo "xiaomi-pipa" > rootfs_mountpoint/etc/hostname
+echo "xiaomi-pad-6" > rootfs_mountpoint/etc/hostname
 uuid=$(blkid -o value linux.img | head -n 1)
 echo "UUID=$uuid / ext4 defaults 0 0" >> rootfs_mountpoint/etc/fstab
 echo "nameserver 1.1.1.1" > rootfs_mountpoint/etc/resolv.conf
-echo "root=UUID=$uuid" > rootfs_mountpoint/etc/cmdline
+echo "root=UUID=$uuid noquiet loglevel=2 console=tty0 earlycon=tty0 keep_bootcon fbcon=rotate:1 fbcon=font:VGA8x16 rw" > rootfs_mountpoint/etc/cmdline
 
 chroot rootfs_mountpoint useradd -m -g users -G wheel user
 
 # HACK: chpasswd doesn't really work for some reason
 chroot rootfs_mountpoint bash -c "passwd root << EOD
-pipathebest
-pipathebest
+root
+root
 EOD"
 chroot rootfs_mountpoint bash -c "passwd user << EOD
-123
-123
+1
+1
 EOD"
 
 echo "%wheel ALL=(ALL:ALL) ALL" > rootfs_mountpoint/etc/sudoers.d/wheel
 
 chroot rootfs_mountpoint xbps-install -Syu xbps
 chroot rootfs_mountpoint xbps-install -Syuv
-chroot rootfs_mountpoint xbps-install -Sy NetworkManager chrony
+chroot rootfs_mountpoint xbps-install -Sy NetworkManager chrony fake-hwclock nano
 
-cp ../config/xbps/custom-repo.key "rootfs_mountpoint/var/db/xbps/keys/a4:79:3a:f6:31:24:1e:34:69:7c:e2:27:c1:72:f5:5f.plist"
+# Install zzz CPU control hook
+mkdir -p rootfs_mountpoint/etc/zzz.d
+install -m755 ../config/zzz/99-cpu-control.sh \
+    rootfs_mountpoint/etc/zzz.d/99-cpu-control.sh
 
 # Enable services
 chroot rootfs_mountpoint /bin/bash -c "ln -sv /etc/sv/dbus /etc/runit/runsvdir/default"
@@ -85,12 +84,6 @@ mount --bind repo rootfs_mountpoint/repo
 chroot rootfs_mountpoint xbps-install -y --repository /repo $PACKAGES
 umount rootfs_mountpoint/repo
 rm -rf rootfs_mountpoint/repo
-
-if [ "$USE_CACHE_REPO" -eq 1 ]; then
-	echo "repository=$REPO" > rootfs_mountpoint/etc/xbps.d/10-repository-main.conf
-fi
-
-echo "repository=$CUSTOM_REPO" > rootfs_mountpoint/etc/xbps.d/00-pipa-repository.conf
 
 cp rootfs_mountpoint/boot/boot-*.img ../$OUTDIR/boot.img
 

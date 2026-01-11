@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 source ./env.sh
+set -x
+echo "PACKAGES_BUILD=$PACKAGES_BUILD"
 
 if [ ! -d $WORKDIR ]; then
 	mkdir $WORKDIR
@@ -13,14 +15,26 @@ if [ ! -d "xbps-static" ];then
 	tar xvf xbps-static.tar.xz -C xbps-static
 fi
 
+set -x
+echo "PACKAGES_BUILD=$PACKAGES_BUILD"
+
+
 export PATH=$(realpath xbps-static/usr/bin):$PATH
 
 if [ ! -d "void-packages" ]; then
 	git clone https://github.com/void-linux/void-packages --depth=1
 
 fi
-cp -r ../packages/* void-packages/srcpkgs/
 
+if [ ! -d "custom_repo" ]; then
+    git clone https://github.com/userg0d/custom_repo --depth=1
+fi
+
+cp -r ../packages/* void-packages/srcpkgs/
+cp -r custom_repo/srcpkgs/* void-packages/srcpkgs/
+
+set -x
+echo "PACKAGES_BUILD=$PACKAGES_BUILD"
 
 if [ ! -d "repo" ]; then
 	mkdir repo
