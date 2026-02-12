@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# Kernel hook for building and reflashing boot.img
+#
+# Arguments passed to this script: $1 pkgname, $2 version.
+#
+PKGNAME="$1"
+VERSION="$2"
+
+echo "Building android boot for $VERSION ..."
+
+gzip -kf /boot/vmlinux-$VERSION
+cat /boot/vmlinux-$VERSION.gz /boot/dtbs/dtbs-$VERSION/qcom/sm8250-xiaomi-pipa.dtb > /boot/vmlinux-$VERSION.gz-dtb
+
+CMDLINE=$(cat /etc/cmdline)
+
+mkbootimg \
+	--header_version 0 \
+	--kernel_offset 0x00008000 \
+	--base 0x00000000 \
+	--ramdisk_offset 0x01000000 \
+	--second_offset 0x00f00000 \
+	--tags_offset 0x00000100 \
+	--pagesize 4096 \
+	--kernel /boot/vmlinux-$VERSION.gz-dtb \
+	--ramdisk /boot/initramfs-$VERSION.img \
+	--cmdline "$CMDLINE" \
+	-o /boot/boot-$VERSION.img
+
+echo "Boot has been built to /boot/boot-$VERSION.img"
+
+if [ -e "/dev/disk/by-partlabel/boot_a" ];then
+	echo "Boot partition detected, reflashing..."
+	slot=$(qbootctl -c | awk '{print $3}')
+	echo "Detected boot slot: $slot"
+	device="/dev/disk/by-partlabel/boot$slot"
+	echo "Flashing to $device"
+	dd if=/boot/boot-$VERSION.img of=$device status=progress
+fi

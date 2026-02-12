@@ -1,0 +1,37 @@
+# Template file for 'pipa-firmware'
+pkgname=pipa-firmware
+version=20241229
+revision=1
+depends="linux-firmware-qualcomm linux-firmware-network"
+short_desc="Binary firmware blobs for the Xiaomi Pad 6"
+maintainer="Arseniy <me@adomerle.pw>"
+license="proprietary"
+homepage="https://github.com/pipa-mainline/xiaomi-pipa-firmware"
+commit="842d35beffeda8c6d1b0e611b335543bf0e6b41e"
+distfiles="https://github.com/userg0d/xiaomi-pipa-firmware/archive/${commit}/xiaomi-pipa-firmware-${commit}.tar.gz"
+checksum=fb998f540e8e5dcb28355a2ee00a3c36d4bfe5478d6f7962045887c58e789963
+archs="aarch64*"
+nostrip=1
+ignore_elf_dirs="/usr/share/qcom"
+noshlibprovides=yes
+noverifyrdeps=yes
+
+do_install() {
+	local firmware
+
+	for firmware in $(cat ${FILESDIR}/awinic_firmware.files); do
+		vinstall ${firmware} 0644 usr/lib/firmware/awinic
+	done
+
+	for firmware in $(cat ${FILESDIR}/novatek_firmware.files); do
+		vinstall ${firmware} 0644 usr/lib/firmware/novatek
+	done
+
+	for firmware in $(cat ${FILESDIR}/qcom_firmware.files); do
+		vinstall ${firmware} 0644 usr/lib/firmware/qcom/sm8250/xiaomi/pipa
+	done
+
+	for firmware in $(cat ${FILESDIR}/dsp_firmware.files); do
+		vinstall ${firmware} 0644 $(echo ${firmware} | rev | cut -d'/' -f2- | rev)
+	done
+}

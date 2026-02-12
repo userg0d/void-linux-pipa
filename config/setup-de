@@ -1,0 +1,253 @@
+#!/bin/bash
+set -e
+
+# Проверка что запущено от root
+if [ "$EUID" -ne 0 ]; then 
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+# Проверка что DE ещё не установлен
+if [ -f /etc/de-installed ]; then
+    echo "Desktop Environment already installed!"
+    echo "Installed: $(cat /etc/de-installed)"
+    exit 0
+fi
+
+echo "=========================================="
+echo "  Xiaomi Pad 6 - DE Installation Script"
+echo "=========================================="
+echo ""
+echo "This script will help you install a Desktop Environment."
+echo ""
+
+# Шаг 1: Настройка сети через nmtui
+echo "Step 1: Network Configuration"
+echo "------------------------------"
+echo "Opening nmtui for network setup..."
+echo "Please configure your network connection."
+read -p "Press Enter to open nmtui..." 
+nmtui
+
+# Проверка подключения к интернету
+echo ""
+echo "Checking internet connection..."
+if ! ping -c 3 repo-fi.voidlinux.org &>/dev/null; then
+    echo "ERROR: No internet connection. Please check your network settings."
+    exit 1
+fi
+echo "Internet connection: OK"
+
+# Шаг 2: Синхронизация времени
+echo ""
+echo "Step 2: Time Synchronization"
+echo "-----------------------------"
+echo "Current time: $(date)"
+echo "Forcing time synchronization..."
+
+# Останавливаем chronyd временно
+sv stop chronyd 2>/dev/null || true
+
+# Принудительная синхронизация
+if command -v chronyd &>/dev/null; then
+    chronyd -q 'pool pool.ntp.org iburst' 2>/dev/null || true
+fi
+
+# Запускаем chronyd обратно
+sv start chronyd 2>/dev/null || true
+
+echo "Time synchronized: $(date)"
+
+# Шаг 3: Обновление репозиториев
+echo ""
+echo "Step 3: Repository Update"
+echo "--------------------------"
+echo "Updating package repositories..."
+xbps-install -Syu xbps
+xbps-install -Syu
+
+# Шаг 4: Настройка локалей
+echo ""
+echo "Step 4: Locale Configuration"
+echo "-----------------------------"
+echo "en_US.UTF-8 will be installed by default."
+echo ""
+echo "Select additional locales (you can choose multiple):"
+echo "  1) Russian (ru_RU.UTF-8)"
+echo "  2) Ukrainian (uk_UA.UTF-8)"
+echo "  3) None (skip)"
+echo ""
+echo "Enter your choices separated by space (e.g., '1 2' for both):"
+read -p "Choice: " locale_choices
+
+# Всегда включаем английскую локаль
+LOCALES="en_US.UTF-8 UTF-8"
+
+# Обрабатываем выбор пользователя и отслеживаем выбранные локали
+SELECTED_RU=false
+SELECTED_UK=false
+
+for choice in $locale_choices; do
+    case $choice in
+        1)
+            LOCALES="$LOCALES
+ru_RU.UTF-8 UTF-8"
+            SELECTED_RU=true
+            echo "Added: Russian locale"
+            ;;
+        2)
+            LOCALES="$LOCALES
+uk_UA.UTF-8 UTF-8"
+            SELECTED_UK=true
+            echo "Added: Ukrainian locale"
+            ;;
+        3)
+            echo "Skipping additional locales"
+            ;;
+        *)
+            echo "Unknown choice: $choice (skipped)"
+            ;;
+    esac
+done
+
+#Настройка локалей
+echo ""
+echo "Configuring locales..."
+echo "$LOCALES" > /etc/default/libc-locales
+xbps-reconfigure -f glibc-locales
+
+echo "Locales configured successfully"
+
+# Выбор системной локали (LANG)
+SYSTEM_LOCALE="en_US.UTF-8"
+
+if [ "$SELECTED_RU" = true ] && [ "$SELECTED_UK" = true ]; then
+    # Обе локали выбраны - спросить какую использовать
+    echo ""
+    echo "Both Russian and Ukrainian locales are installed."
+    echo "Which one should be set as system default?"
+    echo "  1) Russian (ru_RU.UTF-8)"
+    echo "  2) Ukrainian (uk_UA.UTF-8)"
+    echo "  3) English (en_US.UTF-8)"
+    
+    while true; do
+        read -p "Enter your choice (1-3): " sys_locale_choice
+        case $sys_locale_choice in
+            1)
+                SYSTEM_LOCALE="ru_RU.UTF-8"
+                break
+                ;;
+            2)
+                SYSTEM_LOCALE="uk_UA.UTF-8"
+                break
+                ;;
+            3)
+                SYSTEM_LOCALE="en_US.UTF-8"
+                break
+                ;;
+            *)
+                echo "Invalid choice. Please enter 1, 2, or 3."
+                ;;
+        esac
+    done
+elif [ "$SELECTED_RU" = true ]; then
+    # Только русская выбрана
+    SYSTEM_LOCALE="ru_RU.UTF-8"
+    echo "System locale set to: Russian (ru_RU.UTF-8)"
+elif [ "$SELECTED_UK" = true ]; then
+    # Только украинская выбрана
+    SYSTEM_LOCALE="uk_UA.UTF-8"
+    echo "System locale set to: Ukrainian (uk_UA.UTF-8)"
+else
+    # Ничего дополнительного не выбрано
+    echo "System locale set to: English (en_US.UTF-8)"
+fi
+
+# Установка системной локали
+echo "LANG=$SYSTEM_LOCALE" > /etc/locale.conf
+echo "LC_COLLATE=C" >> /etc/locale.conf
+
+# Шаг 5: Выбор DE
+echo ""
+echo "Step 5: Desktop Environment Selection"
+echo "--------------------------------------"
+echo "Available Desktop Environments:"
+echo "  1) KDE Plasma"
+echo "  2) GNOME"
+echo "  3) Cancel installation"
+echo ""
+
+while true; do
+    read -p "Enter your choice (1-3): " choice
+    case $choice in
+        1)
+            DE_NAME="KDE Plasma"
+            DE_PACKAGES="kde-plasma konsole sddm maliit-keyboard xdg-desktop-portal-kde noto-fonts-ttf noto-fonts-emoji"
+            DE_SERVICE="sddm"
+            INSTALL_KDE_CONFIGS=true
+            break
+            ;;
+        2)
+            DE_NAME="GNOME"
+            DE_PACKAGES="gnome-core gnome-console firefox gdm xdg-desktop-portal-gtk noto-fonts-ttf noto-fonts-emoji"
+            DE_SERVICE="gdm"
+            INSTALL_KDE_CONFIGS=false
+            break
+            ;;
+        3)
+            echo "Installation cancelled."
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice. Please enter 1, 2, or 3."
+            ;;
+    esac
+done
+
+# Шаг 6: Установка DE
+echo ""
+echo "Step 6: Installing $DE_NAME"
+echo "----------------------------"
+echo "This may take several minutes depending on your internet connection..."
+echo ""
+
+xbps-install -Suy $DE_PACKAGES
+
+# Установка конфигов (для KDE)
+if [ "$INSTALL_KDE_CONFIGS" = true ]; then
+    echo ""
+    echo "Installing KDE/SDDM configurations..."
+    touch /etc/sddm.conf
+    mkdir -p /etc/sddm.conf.d/
+    
+    # Копируем конфиги из /usr/share/pipa-configs/ (будут предустановлены)
+    if [ -d /usr/share/pipa-configs/kde/sddm ]; then
+        cp /usr/share/pipa-configs/kde/sddm/*.conf /etc/sddm.conf.d/
+    fi
+fi
+
+# Шаг 7: Включение сервисов
+echo ""
+echo "Step 7: Enabling Services"
+echo "--------------------------"
+ln -sv /etc/sv/$DE_SERVICE /etc/runit/runsvdir/default
+
+# Шаг 8: Добавление пользователя в группы
+echo ""
+echo "Adding user to audio, video, bluetooth groups..."
+/sbin/usermod -aG audio,video,bluetooth user
+
+# Создание флага установки
+echo "$DE_NAME" > /etc/de-installed
+
+# Завершение
+echo ""
+echo "=========================================="
+echo "  Installation Complete!"
+echo "=========================================="
+echo ""
+echo "Desktop Environment: $DE_NAME"
+echo ""
+echo "Please reboot your system to start using the graphical environment."
+echo "Command: sudo reboot"
+echo ""

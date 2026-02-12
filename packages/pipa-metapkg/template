@@ -1,0 +1,10 @@
+# Template file for 'pipa-metapkg'
+pkgname=pipa-metapkg
+version=0.3
+revision=2
+metapackage=yes
+depends="linux6.18-pipa pipa-firmware pipa-alsa-ucm pipa-hooks dracut pipa-dracut-modules"
+short_desc="Xiaomi Pad 6 Packages (metapackage)"
+maintainer="Arseniy <me@adomerle.pw>"
+license="GPL2.0"
+homepage="https://github.com/pipa-mainline/void-pipa"
