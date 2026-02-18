@@ -6,10 +6,10 @@ short_desc="Linux kernel and modules (${version%.*} series for Xiaomi Pad 6)"
 maintainer="userg0d <github.com/userg0d>"
 license="GPL-2.0-only"
 homepage="https://www.kernel.org"
-commit="7b3cf7086271db1e1aebe19905c8a6337421df5f"
+commit="576f7cb3848179b36ef92420a1ab4c910b53b357"
 distfiles="https://github.com/userg0d/linux/archive/${commit}/linux-${commit}.tar.gz"
 
-checksum="2085320845767fbff659c584c96f85794d252cb769f1de53069d144653ca898b"
+checksum="c91ea029455873d7a245e720c6a1d4faa360547bc0fd1834799ef3251f17f409"
 python_version=3
 
 archs="aarch64*"
